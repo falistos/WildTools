@@ -3,10 +3,7 @@ package com.bgsoftware.wildtools.utils.items;
 import com.bgsoftware.wildtools.Locale;
 import com.bgsoftware.wildtools.objects.WMaterial;
 import com.bgsoftware.wildtools.objects.tools.WHarvesterTool;
-import org.bukkit.Bukkit;
-import org.bukkit.GameMode;
-import org.bukkit.Location;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -69,6 +66,7 @@ public final class ItemUtils {
             for(String line : tool.getItemStack().getItemMeta().getLore())
                 lore.add(line
                         .replace("{}", usesLeft + "")
+                        .replace("{custom-dur}", generateBar(usesLeft, tool.getDefaultUses()))
                         .replace("{owner}", ownerName)
                         .replace("{sell-mode}", toolItemStack.hasSellMode() ? enabled : disabled));
 
@@ -152,6 +150,31 @@ public final class ItemUtils {
         return WHarvesterTool.crops.contains(type.name()) && type != Material.CACTUS &&
                 type != WMaterial.SUGAR_CANE.parseMaterial() && type != WMaterial.MELON.parseMaterial() &&
                 type != Material.PUMPKIN && !type.name().equals("BAMBOO");
+    }
+
+    public static String generateBar(int current, int max) {
+        String barChar = "▎";
+        ChatColor emptyColor = ChatColor.GRAY;
+        ChatColor filledColor = ChatColor.DARK_GREEN;
+        int length = 20;
+
+        ////////////////////////////////////
+
+        double completedPercentage = Math.abs((double) current / max);
+
+        if (completedPercentage <= 0.2) filledColor = ChatColor.DARK_RED;
+        else if (completedPercentage <= 0.5) filledColor = ChatColor.GOLD;
+
+        int completedBars = (int) Math.floor((completedPercentage * length));
+
+        String bars = filledColor+""+current+" ";
+        for (int i = 1; i < completedBars; i++)
+            bars += filledColor + barChar;
+
+        for (int i = 1; i < (length - completedBars); i++)
+            bars += emptyColor + barChar;
+
+        return bars;
     }
 
 }
