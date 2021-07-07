@@ -3,7 +3,11 @@ package com.bgsoftware.wildtools.utils.items;
 import com.bgsoftware.wildtools.Locale;
 import com.bgsoftware.wildtools.objects.WMaterial;
 import com.bgsoftware.wildtools.objects.tools.WHarvesterTool;
-import org.bukkit.*;
+import com.bgsoftware.wildtools.utils.Executor;
+import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
+import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -22,13 +26,18 @@ public final class ItemUtils {
 
     private static final WildToolsPlugin plugin = WildToolsPlugin.getPlugin();
 
-    public static void addItem(ItemStack itemStack, Inventory inventory, Location location){
+    public static void addItem(ItemStack itemStack, Inventory inventory, Location location, ItemsDropper itemsDropper){
         HashMap<Integer, ItemStack> additionalItems = inventory.addItem(itemStack);
         if(location != null && !additionalItems.isEmpty()){
-            Bukkit.getScheduler().runTask(plugin, () -> {
+            Executor.sync(() -> {
                 for(ItemStack additional : additionalItems.values()) {
                     if (additional != null && additional.getType() != Material.AIR) {
-                        location.getWorld().dropItemNaturally(location, additional);
+                        if(itemsDropper != null) {
+                            itemsDropper.addDrop(additional, location);
+                        }
+                        else {
+                            location.getWorld().dropItemNaturally(location, additional);
+                        }
                     }
                 }
             });
@@ -131,7 +140,7 @@ public final class ItemUtils {
         }
 
         if(clonedTools != null)
-            ItemUtils.addItem(clonedTools, pl.getInventory(), pl.getLocation());
+            ItemUtils.addItem(clonedTools, pl.getInventory(), pl.getLocation(), null);
     }
 
     public static int getDurability(Player player, ToolItemStack toolItemStack) {
