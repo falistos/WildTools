@@ -5,7 +5,7 @@ plugins {
 }
 
 group 'WildTools'
-version = "2.11.0"
+version = "2.11.1"
 
 subprojects {
     apply plugin: 'java'
@@ -13,6 +13,11 @@ subprojects {
 
     repositories {
         maven { url 'https://repo.bg-software.com/repository/nms/' }
+        maven { url 'https://repo.bg-software.com/repository/common/' }
+    }
+
+    dependencies {
+        compileOnly "com.bgsoftware.common.reflection:ReflectionUtils:latest"
     }
 
     shadowJar {
@@ -28,6 +33,7 @@ subprojects {
 repositories {
     maven { url 'https://repo.bg-software.com/repository/nms/' }
     maven { url 'https://repo.bg-software.com/repository/api/' }
+    maven { url 'https://repo.bg-software.com/repository/common/' }
     maven { url 'https://repo.bg-software.com/repository/public-libs/' }
 
     String mavenUsername = project.hasProperty('mavenUsername') ? project.mavenUsername : System.getenv('mavenUsername');
@@ -49,9 +55,12 @@ dependencies {
     implementation project(":API")
     implementation fileTree("archive")
 
+    implementation 'com.bgsoftware.common.reflection:ReflectionUtils:latest'
+
     // Spigot jars
     compileOnly "org.spigotmc:v1_7_R3:latest"
     compileOnly 'org.spigotmc:v1_16_R3-Tuinity:latest'
+
     // Plugin Hooks
     compileOnly "com.cloth:ChunkCollectors:latest"
     compileOnly "dev.warse:ChunkHoppers:latest"
@@ -93,7 +102,7 @@ jar {
 
 processResources {
     outputs.upToDateWhen {false}
-    String versionNumber = System.getenv("BUILD_NUMBER") == null ? version : version + "-DEVb" + System.getenv("BUILD_NUMBER")
+    String versionNumber = System.getenv("BUILD_NUMBER") == null ? version : version + "." + System.getenv("BUILD_NUMBER")
     eachFile { details ->
         if (details.name.contentEquals('plugin.yml')) {
             filter { String line ->
@@ -107,10 +116,10 @@ shadowJar {
     dependsOn(jar)
 
     if(System.getenv("BUILD_NUMBER") == null){
-        archiveName = rootProject.name + ".jar"
+        archiveName = rootProject.name + "-" + version + ".jar"
     }
     else{
-        archiveName = rootProject.name + "-b" + System.getenv("BUILD_NUMBER") + ".jar"
+        archiveName = rootProject.name + "-" + version + "-b" + System.getenv("BUILD_NUMBER") + ".jar"
     }
 
     delete fileTree('./target/') {
