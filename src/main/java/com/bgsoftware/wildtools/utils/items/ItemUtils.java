@@ -163,7 +163,7 @@ public final class ItemUtils {
     }
 
     public static String generateBar(int current, int max) {
-        String barChar = "▎";
+        char barChar = '▎';
         ChatColor emptyColor = ChatColor.GRAY;
         ChatColor filledColor = ChatColor.DARK_GREEN;
         int length = 20;
@@ -179,10 +179,10 @@ public final class ItemUtils {
 
         String bars = filledColor+""+current+" ";
         for (int i = 1; i < completedBars; i++)
-            bars += filledColor + barChar;
+            bars += filledColor + ""+barChar;
 
         for (int i = 1; i < (length - completedBars); i++)
-            bars += emptyColor + barChar;
+            bars += emptyColor + ""+barChar;
 
         return bars;
     }
