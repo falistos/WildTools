@@ -141,3 +141,9 @@ build {
 publish.shouldRunAfter shadowJar
 shadowJar.shouldRunAfter build
 build.shouldRunAfter subprojects.build
+
+compileJava.options.encoding = 'UTF-8'
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
