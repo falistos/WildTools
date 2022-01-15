@@ -40,12 +40,13 @@ public abstract class WTool implements Tool {
     private int usesLeft;
     private String name, toolMode;
     private boolean onlySameType, onlyInsideClaim, unbreakable, vanillaDamage, autoCollect, instantBreak, silkTouch,
-            keepInventory, omni, privateTool, usesProgress;
+            keepInventory, omni, privateTool, usesProgress, statistics;
     private long cooldown;
     private double multiplier;
     private int anvilCombineExp, anvilCombineLimit;
 
-    private Set<String> blacklistedMaterials, whitelistedMaterials, blacklistedDrops, whitelistedDrops, blacklistedWorlds, whitelistedWorlds;
+    private Set<String> blacklistedMaterials, whitelistedMaterials, blacklistedDrops, whitelistedDrops,
+            blacklistedWorlds, whitelistedWorlds, notifiedPlugins;
 
     /***********************************************************************************/
 
@@ -68,10 +69,12 @@ public abstract class WTool implements Tool {
         this.whitelistedDrops = new HashSet<>();
         this.blacklistedWorlds = new HashSet<>();
         this.whitelistedWorlds = new HashSet<>();
+        this.notifiedPlugins = new HashSet<>();
         this.lastUses = new HashMap<>();
         this.multiplier = 1;
         this.anvilCombineExp = -1;
-        toolBlockBreak = new HashSet<>();
+        this.toolBlockBreak = new HashSet<>();
+        this.statistics = true;
     }
 
     @Override
@@ -219,6 +222,16 @@ public abstract class WTool implements Tool {
         this.whitelistedWorlds.addAll(worlds);
     }
 
+    @Override
+    public void setStatistics(boolean statistics) {
+        this.statistics = statistics;
+    }
+
+    @Override
+    public void setNotifiedPlugins(List<String> notifiedPlugins) {
+        this.notifiedPlugins.addAll(notifiedPlugins);
+    }
+
     /***********************************************************************************/
 
     @Override
@@ -351,6 +364,11 @@ public abstract class WTool implements Tool {
     }
 
     @Override
+    public Set<String> getNotifiedPlugins() {
+        return notifiedPlugins;
+    }
+
+    @Override
     public boolean hasBlacklistedMaterials(){
         return !blacklistedMaterials.isEmpty();
     }
@@ -413,6 +431,11 @@ public abstract class WTool implements Tool {
     @Override
     public boolean isWhitelistedWorld(String world) {
         return whitelistedWorlds.isEmpty() || whitelistedWorlds.contains(world);
+    }
+
+    @Override
+    public boolean hasStatistics() {
+        return statistics;
     }
 
     /***********************************************************************************/

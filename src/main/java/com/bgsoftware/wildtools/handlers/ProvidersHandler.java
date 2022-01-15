@@ -4,43 +4,22 @@ import com.bgsoftware.wildtools.WildToolsPlugin;
 import com.bgsoftware.wildtools.api.handlers.ProvidersManager;
 import com.bgsoftware.wildtools.api.hooks.ClaimsProvider;
 import com.bgsoftware.wildtools.api.hooks.ContainerProvider;
-import com.bgsoftware.wildtools.hooks.ClaimsProvider_FactionsUUID;
-import com.bgsoftware.wildtools.hooks.ClaimsProvider_FactionsX;
-import com.bgsoftware.wildtools.hooks.ClaimsProvider_GriefPrevention;
-import com.bgsoftware.wildtools.hooks.ClaimsProvider_Lands;
-import com.bgsoftware.wildtools.hooks.ClaimsProvider_MassiveFactions;
-import com.bgsoftware.wildtools.hooks.ClaimsProvider_Residence;
-import com.bgsoftware.wildtools.hooks.ClaimsProvider_Towny;
-import com.bgsoftware.wildtools.hooks.ClaimsProvider_Villages;
-import com.bgsoftware.wildtools.hooks.ContainerProvider_ChunkCollectors;
-import com.bgsoftware.wildtools.hooks.ContainerProvider_Default;
-import com.bgsoftware.wildtools.hooks.ContainerProvider_WildChests;
 import com.bgsoftware.wildtools.api.hooks.DropsProvider;
-import com.bgsoftware.wildtools.hooks.DropsProvider_ChunkHoppers;
-import com.bgsoftware.wildtools.hooks.DropsProvider_MergedSpawner;
-import com.bgsoftware.wildtools.hooks.DropsProvider_RoseStacker;
-import com.bgsoftware.wildtools.hooks.DropsProvider_SilkSpawners;
-import com.bgsoftware.wildtools.hooks.DropsProvider_WildStacker;
-import com.bgsoftware.wildtools.hooks.DropsProvider_mcMMO;
-import com.bgsoftware.wildtools.hooks.DropsProviders_WildToolsSpawners;
-import com.bgsoftware.wildtools.hooks.FactionsProvider_FactionsX;
-import com.bgsoftware.wildtools.hooks.PricesProvider_CMI;
+import com.bgsoftware.wildtools.api.hooks.PricesProvider;
+import com.bgsoftware.wildtools.api.hooks.SellInfo;
+import com.bgsoftware.wildtools.hooks.ContainerProvider_Default;
+import com.bgsoftware.wildtools.hooks.DropsProviders_Default;
+import com.bgsoftware.wildtools.hooks.EconomyProvider;
+import com.bgsoftware.wildtools.hooks.EconomyProvider_Default;
+import com.bgsoftware.wildtools.hooks.ExtendedContainerProvider;
 import com.bgsoftware.wildtools.hooks.FactionsProvider;
 import com.bgsoftware.wildtools.hooks.FactionsProvider_Default;
-import com.bgsoftware.wildtools.api.hooks.PricesProvider;
 import com.bgsoftware.wildtools.hooks.PricesProvider_Default;
-import com.bgsoftware.wildtools.hooks.PricesProvider_Essentials;
-import com.bgsoftware.wildtools.hooks.PricesProvider_GUIShop;
-import com.bgsoftware.wildtools.hooks.PricesProvider_NewtShop;
-import com.bgsoftware.wildtools.hooks.PricesProvider_QuantumShop;
-import com.bgsoftware.wildtools.hooks.PricesProvider_ShopGUIPlus;
-
-import com.bgsoftware.wildtools.api.hooks.SellInfo;
-import com.gmail.nossr50.datatypes.skills.PrimarySkillType;
+import com.bgsoftware.wildtools.hooks.StackedItemProvider;
+import com.bgsoftware.wildtools.hooks.StackedItemProvider_Default;
+import com.bgsoftware.wildtools.hooks.listener.IToolBlockListener;
+import com.bgsoftware.wildtools.utils.Executor;
 import com.google.common.collect.Lists;
-
-import net.milkbowl.vault.economy.Economy;
-
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
@@ -48,94 +27,130 @@ import org.bukkit.block.BlockState;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 
 public final class ProvidersHandler implements ProvidersManager {
 
-    private static final WildToolsPlugin plugin = WildToolsPlugin.getPlugin();
     private static final SellInfo EMPTY_INFO = new SellInfo(new HashMap<>(), 0.0);
 
     static String pricesPlugin;
 
-    private boolean isVaultEnabled = false;
-    private Economy economy;
+    private final WildToolsPlugin plugin;
 
     private final List<DropsProvider> dropsProviders = Lists.newArrayList();
-
     private final List<ContainerProvider> containerProviders = Lists.newArrayList();
-    private final ContainerProvider defaultContainer = new ContainerProvider_Default(plugin);
-
+    private final ExtendedContainerProvider defaultContainer;
     private final List<ClaimsProvider> claimsProviders = Lists.newArrayList();
     private PricesProvider pricesProvider;
     private FactionsProvider factionsProvider;
+    private StackedItemProvider stackedItemProvider;
+    private EconomyProvider economyProvider;
+
+    private final List<IToolBlockListener> toolBlockListeners = Lists.newArrayList();
+
+    public ProvidersHandler(WildToolsPlugin plugin) {
+        this.plugin = plugin;
+        this.defaultContainer = new ContainerProvider_Default(plugin);
+        Executor.sync(this::loadProviders, 1L);
+    }
 
     /*
      * Hooks' methods
      */
 
-    public double getPrice(Player player, ItemStack itemStack){
-        if(plugin.getToolsManager().getTool(itemStack) != null)
+    public double getPrice(Player player, ItemStack itemStack) {
+        if (plugin.getToolsManager().getTool(itemStack) != null)
             return -1;
 
         try {
             return pricesProvider.getPrice(player, itemStack);
-        }catch(Exception ex){
+        } catch (Exception ex) {
             return -1;
         }
     }
 
-    public int getTNTAmountFromBank(Player player){
+    public int getTNTAmountFromBank(Player player) {
         return factionsProvider.getTNTAmountFromBank(player);
     }
 
-    public void takeTNTFromBank(Player player, int amount){
+    public void takeTNTFromBank(Player player, int amount) {
         factionsProvider.takeTNTFromBank(player, amount);
     }
 
-    public List<ItemStack> getBlockDrops(Player player, Block block, boolean onlySpawner){
+    public List<ItemStack> getBlockDrops(Player player, Block block, boolean onlySpawner) {
         List<ItemStack> drops = new ArrayList<>();
         dropsProviders.stream().filter(dropsProvider -> onlySpawner == dropsProvider.isSpawnersOnly())
                 .forEach(dropsProvider -> drops.addAll(dropsProvider.getBlockDrops(player, block)));
         return drops;
     }
 
-    public boolean isContainer(BlockState blockState){
-        for(ContainerProvider containerProvider : containerProviders){
-            if(containerProvider.isContainer(blockState))
+    public boolean isContainer(BlockState blockState) {
+        for (ContainerProvider containerProvider : containerProviders) {
+            if (containerProvider.isContainer(blockState))
                 return true;
         }
 
         return defaultContainer.isContainer(blockState);
     }
 
-    public SellInfo sellContainer(BlockState blockState, Inventory inventory, Player player){
-        for(ContainerProvider containerProvider : containerProviders){
-            if(containerProvider.isContainer(blockState))
+    public SellInfo sellContainer(BlockState blockState, Inventory inventory, Player player) {
+        for (ContainerProvider containerProvider : containerProviders) {
+            if (containerProvider.isContainer(blockState))
                 return containerProvider.sellContainer(blockState, inventory, player);
         }
 
-        if(defaultContainer.isContainer(blockState))
+        if (defaultContainer.isContainer(blockState))
             return defaultContainer.sellContainer(blockState, inventory, player);
 
         return EMPTY_INFO;
     }
 
-    public void removeContainer(BlockState blockState, Inventory inventory, SellInfo sellInfo){
-        for(ContainerProvider containerProvider : containerProviders){
-            if(containerProvider.isContainer(blockState)) {
+    public void removeContainer(BlockState blockState, Inventory inventory, SellInfo sellInfo) {
+        for (ContainerProvider containerProvider : containerProviders) {
+            if (containerProvider.isContainer(blockState)) {
                 containerProvider.removeContainer(blockState, inventory, sellInfo);
                 return;
             }
         }
 
-        if(defaultContainer.isContainer(blockState))
+        if (defaultContainer.isContainer(blockState))
             defaultContainer.removeContainer(blockState, inventory, sellInfo);
     }
 
-    public boolean isInsideClaim(Player player, Location location){
+    public List<Inventory> getAllInventories(BlockState blockState, Inventory chestInventory) {
+        for (ContainerProvider containerProvider : containerProviders) {
+            if (containerProvider instanceof ExtendedContainerProvider && containerProvider.isContainer(blockState)) {
+                return ((ExtendedContainerProvider) containerProvider).getAllInventories(blockState, chestInventory);
+            }
+        }
+
+        if (defaultContainer.isContainer(blockState))
+            return defaultContainer.getAllInventories(blockState, chestInventory);
+
+        return Collections.emptyList();
+    }
+
+    public void addItems(BlockState blockState, Inventory chestInventory, List<ItemStack> itemStackList) {
+        for (ContainerProvider containerProvider : containerProviders) {
+            if (containerProvider instanceof ExtendedContainerProvider && containerProvider.isContainer(blockState)) {
+                ((ExtendedContainerProvider) containerProvider).addItems(blockState, chestInventory, itemStackList);
+                return;
+            }
+        }
+
+        if (defaultContainer.isContainer(blockState))
+            defaultContainer.addItems(blockState, chestInventory, itemStackList);
+    }
+
+    public boolean isInsideClaim(Player player, Location location) {
         return claimsProviders.stream().anyMatch(claimsProvider -> claimsProvider.isPlayerClaim(player, location));
     }
 
@@ -143,21 +158,8 @@ public final class ProvidersHandler implements ProvidersManager {
      * Handler' methods
      */
 
-    public void enableVault(){
-        isVaultEnabled = true;
-        economy = Bukkit.getServicesManager().getRegistration(Economy.class).getProvider();
-    }
-
-    public void depositPlayer(Player player, double price){
-        economy.depositPlayer(player, price);
-    }
-
-    public boolean canSellItem(Player player, ItemStack itemStack){
-        return isVaultEnabled && getPrice(player, itemStack) > 0;
-    }
-
-    public boolean isVaultEnabled(){
-        return isVaultEnabled;
+    public boolean canSellItem(Player player, ItemStack itemStack) {
+        return getPrice(player, itemStack) > 0;
     }
 
     @Override
@@ -180,127 +182,276 @@ public final class ProvidersHandler implements ProvidersManager {
         claimsProviders.add(claimsProvider);
     }
 
-    public void loadData(){
-        if(pricesProvider == null) {
-            // Prices Plugin Hookup
-            if (pricesPlugin.equalsIgnoreCase("ShopGUIPlus") && Bukkit.getPluginManager().isPluginEnabled("ShopGUIPlus"))
-                pricesProvider = new PricesProvider_ShopGUIPlus();
-            else if (pricesPlugin.equalsIgnoreCase("GUIShop") && Bukkit.getPluginManager().isPluginEnabled("GUIShop"))
-                pricesProvider = new PricesProvider_GUIShop();
-            else if (pricesPlugin.equalsIgnoreCase("Essentials") && Bukkit.getPluginManager().isPluginEnabled("Essentials")) {
-                try {
-                    pricesProvider = new PricesProvider_Essentials();
-                } catch (Throwable ex) {
-                    pricesProvider = (PricesProvider) getInstance("com.bgsoftware.wildtools.hooks.PricesProvider_EssentialsOld");
+    public void registerToolBlockListener(IToolBlockListener toolBlockListener) {
+        this.toolBlockListeners.add(toolBlockListener);
+    }
+
+    public void notifyToolBlockListeners(Location location, IToolBlockListener.Action action) {
+        this.toolBlockListeners.forEach(toolBlockListener -> toolBlockListener.recordBlockChange(location, action));
+    }
+
+    public boolean hasEconomyProvider() {
+        return !(economyProvider instanceof EconomyProvider_Default);
+    }
+
+    public StackedItemProvider getStackedItemProvider() {
+        return stackedItemProvider;
+    }
+
+    public EconomyProvider getEconomyProvider() {
+        return economyProvider;
+    }
+
+    private void loadProviders() {
+        WildToolsPlugin.log("Loading providers started...");
+        long startTime = System.currentTimeMillis();
+
+        WildToolsPlugin.log(" - Using " + plugin.getNMSAdapter().getVersion() + " adapter.");
+
+        loadGeneralHooks();
+        loadPricesProvider();
+        loadFactionsProvider();
+        loadDropsProviders();
+        loadContainerProviders();
+        loadClaimsProviders();
+        loadStackedItemProviders();
+        loadEconomyProvider();
+
+        WildToolsPlugin.log("Loading providers done (Took " + (System.currentTimeMillis() - startTime) + "ms)");
+
+        if (!hasEconomyProvider()) {
+            WildToolsPlugin.log("");
+            WildToolsPlugin.log("If you want sell-wands to be enabled, please install Vault with an economy plugin.");
+            WildToolsPlugin.log("");
+        }
+    }
+
+    private void loadGeneralHooks() {
+        if (Bukkit.getPluginManager().isPluginEnabled("mcMMO")) {
+            registerHook("McMMOHook");
+        }
+        if (Bukkit.getPluginManager().isPluginEnabled("SuperMobCoins")) {
+            registerHook("SuperMobCoinsHook");
+        }
+    }
+
+    private void loadPricesProvider() {
+        if (!(pricesProvider instanceof PricesProvider_Default))
+            return;
+
+        Optional<PricesProvider> pricesProvider;
+
+        if (pricesPlugin.equalsIgnoreCase("ShopGUIPlus") && Bukkit.getPluginManager().isPluginEnabled("ShopGUIPlus")) {
+            pricesProvider = createInstance("PricesProvider_ShopGUIPlus");
+        } else if (pricesPlugin.equalsIgnoreCase("GUIShop") && Bukkit.getPluginManager().isPluginEnabled("GUIShop")) {
+            pricesProvider = createInstance("PricesProvider_GUIShop");
+        } else if (pricesPlugin.equalsIgnoreCase("Essentials") && Bukkit.getPluginManager().isPluginEnabled("Essentials")) {
+            Plugin essentials = Bukkit.getPluginManager().getPlugin("Essentials");
+            if (essentials.getDescription().getVersion().startsWith("2.15")) {
+                pricesProvider = createInstance("PricesProvider_Essentials215");
+            } else {
+                pricesProvider = createInstance("PricesProvider_Essentials216");
+            }
+        } else if (pricesPlugin.equals("CMI") && Bukkit.getPluginManager().isPluginEnabled("CMI")) {
+            pricesProvider = createInstance("PricesProvider_CMI");
+        } else if (pricesPlugin.equalsIgnoreCase("newtShop") && Bukkit.getPluginManager().isPluginEnabled("newtShop")) {
+            pricesProvider = createInstance("PricesProvider_NewtShop");
+        } else if (pricesPlugin.equalsIgnoreCase("QuantumShop") && Bukkit.getPluginManager().isPluginEnabled("QuantumShop")) {
+            pricesProvider = createInstance("PricesProvider_QuantumShop");
+        } else if (pricesPlugin.equalsIgnoreCase("EconomyShopGUI") && (Bukkit.getPluginManager().isPluginEnabled("EconomyShopGUI") ||
+                Bukkit.getPluginManager().isPluginEnabled("EconomyShopGUI-Premium"))) {
+            pricesProvider = createInstance("PricesProvider_EconomyShopGUI");
+        } else {
+            pricesProvider = Optional.of(new PricesProvider_Default());
+        }
+
+        pricesProvider.ifPresent(this::setPricesProvider);
+    }
+
+    private void loadFactionsProvider() {
+        Optional<FactionsProvider> factionsProvider = Optional.empty();
+
+        if (Bukkit.getPluginManager().isPluginEnabled("Factions") &&
+                Bukkit.getPluginManager().getPlugin("Factions").getDescription().getAuthors().contains("ProSavage")) {
+            factionsProvider = createInstance("FactionsProvider_SavageFactions");
+        } else if (Bukkit.getPluginManager().isPluginEnabled("FactionsX") &&
+                containsClass("net.prosavage.factionsx.persist.TNTAddonData")) {
+            factionsProvider = createInstance("FactionsProvider_FactionsX");
+        }
+
+        if (!factionsProvider.isPresent()) {
+            factionsProvider = Optional.of(new FactionsProvider_Default());
+        }
+
+        this.factionsProvider = factionsProvider.get();
+    }
+
+    private void loadDropsProviders() {
+        if (Bukkit.getPluginManager().isPluginEnabled("ChunkHoppers")) {
+            Optional<DropsProvider> dropsProvider = createInstance("DropsProvider_ChunkHoppers");
+            dropsProvider.ifPresent(this::addDropsProvider);
+        }
+        if (Bukkit.getPluginManager().isPluginEnabled("mcMMO")) {
+            Plugin mcMMO = Bukkit.getPluginManager().getPlugin("mcMMO");
+            if (mcMMO.getDescription().getVersion().startsWith("1")) {
+                Optional<DropsProvider> dropsProvider = createInstance("DropsProvider_mcMMO1");
+                dropsProvider.ifPresent(this::addDropsProvider);
+            } else {
+                Optional<DropsProvider> dropsProvider = createInstance("DropsProvider_mcMMO2");
+                dropsProvider.ifPresent(this::addDropsProvider);
+            }
+        }
+
+        // Spawners related drops
+        if (Bukkit.getPluginManager().isPluginEnabled("WildStacker")) {
+            Optional<DropsProvider> dropsProvider = createInstance("DropsProvider_WildStacker");
+            dropsProvider.ifPresent(this::addDropsProvider);
+        } else if (Bukkit.getPluginManager().isPluginEnabled("SilkSpawners")) {
+            Plugin silkSpawners = Bukkit.getPluginManager().getPlugin("SilkSpawners");
+            if (silkSpawners.getDescription().getVersion().startsWith("5")) {
+                Optional<DropsProvider> dropsProvider = createInstance("DropsProvider_SilkSpawners5");
+                dropsProvider.ifPresent(this::addDropsProvider);
+            } else if (silkSpawners.getDescription().getVersion().startsWith("6")) {
+                Optional<DropsProvider> dropsProvider = createInstance("DropsProvider_SilkSpawners6");
+                dropsProvider.ifPresent(this::addDropsProvider);
+            }
+        } else if (Bukkit.getPluginManager().isPluginEnabled("MergedSpawner")) {
+            Optional<DropsProvider> dropsProvider = createInstance("DropsProvider_MergedSpawner");
+            dropsProvider.ifPresent(this::addDropsProvider);
+        } else if (Bukkit.getPluginManager().isPluginEnabled("RoseStacker")) {
+            Optional<DropsProvider> dropsProvider = createInstance("DropsProvider_RoseStacker");
+            dropsProvider.ifPresent(this::addDropsProvider);
+        } else {
+            addDropsProvider(new DropsProviders_Default());
+        }
+
+    }
+
+    private void loadContainerProviders() {
+        if (Bukkit.getPluginManager().isPluginEnabled("ChunkCollectors")) {
+            Optional<ContainerProvider> containerProvider = createInstance("ContainerProvider_ChunkCollectors");
+            containerProvider.ifPresent(this::addContainerProvider);
+        }
+        if (Bukkit.getPluginManager().isPluginEnabled("WildChests")) {
+            Optional<ContainerProvider> containerProvider = createInstance("ContainerProvider_WildChests");
+            containerProvider.ifPresent(this::addContainerProvider);
+        }
+    }
+
+    private void loadClaimsProviders() {
+        if (Bukkit.getPluginManager().isPluginEnabled("Factions")) {
+            Plugin factions = Bukkit.getPluginManager().getPlugin("Factions");
+            if (factions.getDescription().getAuthors().contains("drtshock")) {
+                if (factions.getDescription().getVersion().startsWith("1.6.9.5-U0.5")) {
+                    Optional<ClaimsProvider> claimsProvider = createInstance("ClaimsProvider_FactionsUUID05");
+                    claimsProvider.ifPresent(this::addClaimsProvider);
+                } else {
+                    Optional<ClaimsProvider> claimsProvider = createInstance("ClaimsProvider_FactionsUUID02");
+                    claimsProvider.ifPresent(this::addClaimsProvider);
                 }
-            } else if (pricesPlugin.equals("CMI") && Bukkit.getPluginManager().isPluginEnabled("CMI"))
-                pricesProvider = new PricesProvider_CMI();
-            else if (pricesPlugin.equalsIgnoreCase("newtShop") && Bukkit.getPluginManager().isPluginEnabled("newtShop"))
-                pricesProvider = new PricesProvider_NewtShop();
-            else if (pricesPlugin.equalsIgnoreCase("QuantumShop") && Bukkit.getPluginManager().isPluginEnabled("QuantumShop"))
-                pricesProvider = new PricesProvider_QuantumShop();
-            else pricesProvider = new PricesProvider_Default();
-        }
-
-        // Factions Hookup
-        if(Bukkit.getPluginManager().isPluginEnabled("Factions") &&
-                Bukkit.getPluginManager().getPlugin("Factions").getDescription().getAuthors().contains("ProSavage"))
-            factionsProvider = (FactionsProvider) getInstance("com.bgsoftware.wildtools.hooks.FactionsProvider_SavageFactions");
-        else if(Bukkit.getPluginManager().isPluginEnabled("FactionsX") &&
-                containsClass("net.prosavage.factionsx.persist.TNTAddonData")){
-            factionsProvider = new FactionsProvider_FactionsX();
-        }
-        else factionsProvider = new FactionsProvider_Default();
-
-        // Drops hookup
-        if(Bukkit.getPluginManager().isPluginEnabled("ChunkHoppers")) {
-            addDropsProvider(new DropsProvider_ChunkHoppers());
-        }
-        if(Bukkit.getPluginManager().isPluginEnabled("mcMMO")){
-            try{
-                PrimarySkillType.valueOf("HERBALISM");
-                addDropsProvider(new DropsProvider_mcMMO());
-            }catch(Throwable ex){
-                addDropsProvider((DropsProvider) getInstance("com.bgsoftware.wildtools.hooks.DropsProvider_mcMMOOld"));
+            } else {
+                Optional<ClaimsProvider> claimsProvider = createInstance("ClaimsProvider_MassiveFactions");
+                claimsProvider.ifPresent(this::addClaimsProvider);
             }
         }
-
-        // Spawners drops
-        if(Bukkit.getPluginManager().isPluginEnabled("WildStacker")) {
-            addDropsProvider(new DropsProvider_WildStacker());
+        if (Bukkit.getPluginManager().isPluginEnabled("FactionsX")) {
+            Optional<ClaimsProvider> claimsProvider = createInstance("ClaimsProvider_FactionsX");
+            claimsProvider.ifPresent(this::addClaimsProvider);
         }
-        else if(Bukkit.getPluginManager().isPluginEnabled("SilkSpawners")){
-            try{
-                de.dustplanet.util.SilkUtil.class.getMethod("getCreatureName", String.class);
-                addDropsProvider(new DropsProvider_SilkSpawners());
-            }catch(Throwable ex){
-                addDropsProvider((DropsProvider) getInstance("com.bgsoftware.wildtools.hooks.DropsProvider_SilkSpawnersOld"));
-            }
+        if (Bukkit.getPluginManager().isPluginEnabled("GriefPrevention")) {
+            Optional<ClaimsProvider> claimsProvider = createInstance("ClaimsProvider_GriefPrevention");
+            claimsProvider.ifPresent(this::addClaimsProvider);
         }
-        else if(Bukkit.getPluginManager().isPluginEnabled("MergedSpawner")) {
-            addDropsProvider(new DropsProvider_MergedSpawner());
+        if (Bukkit.getPluginManager().isPluginEnabled("Lands")) {
+            Optional<ClaimsProvider> claimsProvider = createInstance("ClaimsProvider_Lands");
+            claimsProvider.ifPresent(this::addClaimsProvider);
         }
-        else if(Bukkit.getPluginManager().isPluginEnabled("RoseStacker")) {
-            addDropsProvider(new DropsProvider_RoseStacker());
+        if (Bukkit.getPluginManager().isPluginEnabled("Residence")) {
+            Optional<ClaimsProvider> claimsProvider = createInstance("ClaimsProvider_Residence");
+            claimsProvider.ifPresent(this::addClaimsProvider);
         }
-        else {
-            addDropsProvider(new DropsProviders_WildToolsSpawners());
+        if (Bukkit.getPluginManager().isPluginEnabled("Towny")) {
+            Optional<ClaimsProvider> claimsProvider = createInstance("ClaimsProvider_Towny");
+            claimsProvider.ifPresent(this::addClaimsProvider);
         }
-
-        // Containers hookup
-        if(Bukkit.getPluginManager().isPluginEnabled("ChunkCollectors")){
-            addContainerProvider(new ContainerProvider_ChunkCollectors());
-        }
-        if(Bukkit.getPluginManager().isPluginEnabled("WildChests")){
-            addContainerProvider(new ContainerProvider_WildChests(plugin));
-        }
-
-        if(Bukkit.getPluginManager().isPluginEnabled("Factions")){
-            if(Bukkit.getPluginManager().getPlugin("Factions").getDescription().getAuthors().contains("drtshock")){
-                addClaimsProvider(new ClaimsProvider_FactionsUUID());
-            }
-            else{
-                addClaimsProvider(new ClaimsProvider_MassiveFactions());
-            }
-        }
-        if(Bukkit.getPluginManager().isPluginEnabled("FactionsX")){
-            addClaimsProvider(new ClaimsProvider_FactionsX());
-        }
-        if(Bukkit.getPluginManager().isPluginEnabled("GriefPrevention")){
-            addClaimsProvider(new ClaimsProvider_GriefPrevention());
-        }
-        if(Bukkit.getPluginManager().isPluginEnabled("Lands")){
-            addClaimsProvider(new ClaimsProvider_Lands());
-        }
-        if(Bukkit.getPluginManager().isPluginEnabled("Residence")){
-            addClaimsProvider(new ClaimsProvider_Residence());
-        }
-        if(Bukkit.getPluginManager().isPluginEnabled("Towny")){
-            addClaimsProvider(new ClaimsProvider_Towny());
-        }
-        if(Bukkit.getPluginManager().isPluginEnabled("Villages")){
-            addClaimsProvider(new ClaimsProvider_Villages());
-        }
-
-    }
-
-    public static void reload(){
-        plugin.getProviders().loadData();
-    }
-
-    private static Object getInstance(String clazz){
-        try{
-            return Class.forName(clazz).newInstance();
-        }catch(Exception ex){
-            throw new RuntimeException(ex);
+        if (Bukkit.getPluginManager().isPluginEnabled("Villages")) {
+            Optional<ClaimsProvider> claimsProvider = createInstance("ClaimsProvider_Villages");
+            claimsProvider.ifPresent(this::addClaimsProvider);
         }
     }
 
-    private static boolean containsClass(String path){
-        try{
+    private void loadStackedItemProviders() {
+        Optional<StackedItemProvider> stackedItemProvider = Optional.empty();
+
+        if (Bukkit.getPluginManager().isPluginEnabled("WildStacker")) {
+            stackedItemProvider = createInstance("StackedItemProvider_WildStacker");
+        }
+
+        if (!stackedItemProvider.isPresent()) {
+            stackedItemProvider = Optional.of(new StackedItemProvider_Default());
+        }
+
+        this.stackedItemProvider = stackedItemProvider.get();
+    }
+
+    private void loadEconomyProvider() {
+        Optional<EconomyProvider> economyProvider = Optional.empty();
+
+        if (Bukkit.getPluginManager().isPluginEnabled("Vault")) {
+            economyProvider = createInstance("EconomyProvider_Vault");
+        }
+
+        if (!economyProvider.isPresent()) {
+            economyProvider = Optional.of(new EconomyProvider_Default());
+        }
+
+        this.economyProvider = economyProvider.get();
+    }
+
+    public static void reload() {
+        WildToolsPlugin.getPlugin().getProviders().loadProviders();
+    }
+
+    private void registerHook(String className) {
+        try {
+            Class<?> clazz = Class.forName("com.bgsoftware.wildtools.hooks." + className);
+            Method registerMethod = clazz.getMethod("register", WildToolsPlugin.class);
+            registerMethod.invoke(null, plugin);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private <T> Optional<T> createInstance(String className) {
+        try {
+            Class<?> clazz = Class.forName("com.bgsoftware.wildtools.hooks." + className);
+            try {
+                Method compatibleMethod = clazz.getDeclaredMethod("isCompatible");
+                if (!(boolean) compatibleMethod.invoke(null))
+                    return Optional.empty();
+            } catch (Exception ignored) {
+            }
+
+            try {
+                Constructor<?> constructor = clazz.getConstructor(WildToolsPlugin.class);
+                // noinspection unchecked
+                return Optional.of((T) constructor.newInstance(plugin));
+            } catch (Exception error) {
+                // noinspection unchecked
+                return Optional.of((T) clazz.newInstance());
+            }
+        } catch (ClassNotFoundException ignored) {
+            return Optional.empty();
+        } catch (Exception error) {
+            error.printStackTrace();
+            return Optional.empty();
+        }
+    }
+
+    private static boolean containsClass(String path) {
+        try {
             Class.forName(path);
             return true;
-        }catch (Throwable ex){
+        } catch (Throwable ex) {
             return false;
         }
     }

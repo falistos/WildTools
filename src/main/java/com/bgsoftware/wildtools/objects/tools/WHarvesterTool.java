@@ -60,6 +60,7 @@ public final class WHarvesterTool extends WTool implements HarvesterTool {
         this.radius = radius;
         this.farmlandRadius = -1;
         this.oneLayerOnly = false;
+        this.activateAction = "RIGHT_CLICK";
     }
 
     @Override
@@ -248,7 +249,7 @@ public final class WHarvesterTool extends WTool implements HarvesterTool {
                 multiplier = harvesterHoeSellEvent.getMultiplier();
                 sellInfo.totalPrice = harvesterHoeSellEvent.getPrice() * multiplier;
 
-                plugin.getProviders().depositPlayer(player, sellInfo.totalPrice);
+                plugin.getProviders().getEconomyProvider().depositPlayer(player, sellInfo.totalPrice);
 
                 //noinspection all
                 message = harvesterHoeSellEvent.getMessage()
