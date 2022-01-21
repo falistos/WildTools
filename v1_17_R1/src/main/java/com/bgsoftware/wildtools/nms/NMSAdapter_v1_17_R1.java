@@ -2,8 +2,8 @@ package com.bgsoftware.wildtools.nms;
 
 import ca.spottedleaf.starlight.light.StarLightInterface;
 import com.bgsoftware.common.reflection.ReflectField;
+import com.bgsoftware.common.reflection.ReflectMethod;
 import com.bgsoftware.wildtools.WildToolsPlugin;
-import com.bgsoftware.wildtools.hooks.PaperHook;
 import com.bgsoftware.wildtools.objects.WMaterial;
 import com.bgsoftware.wildtools.recipes.AdvancedShapedRecipe;
 import com.bgsoftware.wildtools.utils.Executor;
@@ -98,6 +98,9 @@ public final class NMSAdapter_v1_17_R1 implements NMSAdapter {
     private static final ReflectField<ItemStack> ITEM_STACK_HANDLE = new ReflectField<>(CraftItemStack.class, ItemStack.class, "handle");
     private static final ReflectField<Object> STAR_LIGHT_INTERFACE = new ReflectField<>(LightEngineThreaded.class, Object.class, "theLightEngine");
     private static final ReflectField<ThreadedMailbox<Runnable>> LIGHT_ENGINE_EXECUTOR = new ReflectField<>(LightEngineThreaded.class, ThreadedMailbox.class, "e");
+    private static final ReflectMethod<Void> UPDATE_NEARBY_BLOCKS = new ReflectMethod<>(
+            "com.destroystokyo.paper.antixray.ChunkPacketBlockControllerAntiXray",
+            "updateNearbyBlocks", World.class, BlockPosition.class);
 
     private static Constructor<?> MULTI_BLOCK_CHANGE_CONSTRUCTOR;
     private static Class<?> SHORT_ARRAY_SET_CLASS = null;
@@ -284,8 +287,9 @@ public final class NMSAdapter_v1_17_R1 implements NMSAdapter {
             world.a(null, 2001, blockPosition, Block.getCombinedId(world.getType(blockPosition)));
 
         chunk.setType(blockPosition, Block.getByCombinedId(combinedId), true);
-        if(PaperHook.isAntiXRayAvailable())
-            PaperHook.handleLeftClickBlockMethod(world, blockPosition);
+
+        if(UPDATE_NEARBY_BLOCKS.isValid())
+            UPDATE_NEARBY_BLOCKS.invoke(world.chunkPacketBlockController, world, blockPosition);
     }
 
     @Override
@@ -294,22 +298,16 @@ public final class NMSAdapter_v1_17_R1 implements NMSAdapter {
         Map<Integer, Set<Short>> blocks = new HashMap<>();
         WorldServer worldServer = (WorldServer) chunk.getWorld();
 
-        for(Location location : blocksList){
-            Set<Short> shortSet = blocks.computeIfAbsent(location.getBlockY() >> 4, i -> createShortSet());
-            shortSet.add((short)((location.getBlockX() & 15) << 8 | (location.getBlockZ() & 15) << 4 | (location.getBlockY() & 15)));
-        }
+        ChunkProviderServer chunkProviderServer = worldServer.getChunkProvider();
 
-        for(Map.Entry<Integer,  Set<Short>> entry : blocks.entrySet()){
-            PacketPlayOutMultiBlockChange packetPlayOutMultiBlockChange = createMultiBlockChangePacket(
-                    SectionPosition.a(chunk.getPos(), entry.getKey()), entry.getValue(), chunk.getSections()[entry.getKey()]);
-            if(packetPlayOutMultiBlockChange != null)
-                sendPacketToRelevantPlayers(worldServer, chunk.getPos().b, chunk.getPos().c, packetPlayOutMultiBlockChange);
+        for(Location location : blocksList){
+            BlockPosition blockPosition = new BlockPosition(location.getBlockX(), location.getBlockY(), location.getBlockZ());
+            chunkProviderServer.flagDirty(blockPosition);
         }
 
         if (STAR_LIGHT_INTERFACE.isValid()) {
             LightEngineThreaded lightEngineThreaded = (LightEngineThreaded) worldServer.k_();
             StarLightInterface starLightInterface = (StarLightInterface) STAR_LIGHT_INTERFACE.get(lightEngineThreaded);
-            ChunkProviderServer chunkProviderServer = worldServer.getChunkProvider();
             LIGHT_ENGINE_EXECUTOR.get(lightEngineThreaded).a(() ->
                     starLightInterface.relightChunks(Collections.singleton(chunk.getPos()), chunkPos ->
                             chunkProviderServer.h.execute(() -> sendPacketToRelevantPlayers(worldServer, chunkPos.b, chunkPos.c,
@@ -542,6 +540,11 @@ public final class NMSAdapter_v1_17_R1 implements NMSAdapter {
                 entityItem.getWorld().addEntity(entityItem);
             }
         });
+    }
+
+    @Override
+    public int getMinHeight(org.bukkit.World world) {
+        return world.getMinHeight();
     }
 
     private static boolean canMerge(EntityItem entityItem){
