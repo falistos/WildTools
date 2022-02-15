@@ -18,13 +18,20 @@ import java.util.UUID;
 @SuppressWarnings("unused")
 public final class McMMOHook {
 
+    private static final ReflectMethod<Object> EVENT_GET_ABILITY = new ReflectMethod<>(
+            McMMOPlayerAbilityActivateEvent.class, "getAbility");
     private static final ReflectMethod<Object> MCMMO_GET_PLACESTORE = new ReflectMethod<>(com.gmail.nossr50.mcMMO.class, "getPlaceStore");
     private static ReflectMethod<Void> MCMMO_PLACESTORE_SET = null;
     private static WildToolsPlugin plugin;
 
     static {
         try {
-            Class<?> placeStoreRetClass = Class.forName("com.gmail.nossr50.util.blockmeta.chunkmeta.ChunkManager");
+            Class<?> placeStoreRetClass;
+            try {
+                placeStoreRetClass = Class.forName("com.gmail.nossr50.util.blockmeta.chunkmeta.ChunkManager");
+            } catch (ClassNotFoundException error) {
+                placeStoreRetClass = Class.forName("com.gmail.nossr50.util.blockmeta.ChunkManager");
+            }
             MCMMO_PLACESTORE_SET = new ReflectMethod<>(placeStoreRetClass, "setTrue", Block.class);
         } catch (Throwable ignored) {
         }
@@ -75,13 +82,7 @@ public final class McMMOHook {
             try {
                 return event.getAbility().name();
             } catch (Throwable ex) {
-                try {
-                    Object ability = McMMOPlayerAbilityActivateEvent.class.getMethod("getAbility").invoke(event);
-                    return ability.toString().toUpperCase();
-                } catch (Throwable ex1) {
-                    ex1.printStackTrace();
-                    return "";
-                }
+                return (EVENT_GET_ABILITY.invoke(event) + "").toUpperCase();
             }
         }
 
