@@ -15,6 +15,7 @@ import com.bgsoftware.wildtools.listeners.EditorListener;
 import com.bgsoftware.wildtools.listeners.PlayerListener;
 import com.bgsoftware.wildtools.metrics.Metrics;
 import com.bgsoftware.wildtools.nms.NMSAdapter;
+import com.bgsoftware.wildtools.utils.KeepInventory;
 import org.bukkit.Bukkit;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -36,6 +37,8 @@ public final class WildToolsPlugin extends JavaPlugin implements WildTools {
     private Enchantment glowEnchant;
 
     private NMSAdapter nmsAdapter;
+
+    private KeepInventory keepInventory;
 
     @Override
     public void onEnable() {
@@ -60,6 +63,9 @@ public final class WildToolsPlugin extends JavaPlugin implements WildTools {
         loadNMSAdapter();
         registerGlowEnchantment();
 
+        keepInventory = new KeepInventory(this, getDataFolder().toPath().resolve("kept-items.yml").toFile());
+        keepInventory.load();
+
         providersHandler = new ProvidersHandler(this);
         toolsManager = new ToolsHandler(this);
         eventsHandler = new EventsHandler();
@@ -83,6 +89,8 @@ public final class WildToolsPlugin extends JavaPlugin implements WildTools {
 
     @Override
     public void onDisable() {
+        keepInventory.save();
+
         for (Player player : nmsAdapter.getOnlinePlayers()) {
             while (player.getOpenInventory().getType() == InventoryType.CHEST)
                 player.closeInventory();
@@ -157,6 +165,8 @@ public final class WildToolsPlugin extends JavaPlugin implements WildTools {
     public NMSAdapter getNMSAdapter() {
         return nmsAdapter;
     }
+
+    public KeepInventory getKeepInventory() { return keepInventory; }
 
     public static void log(String message) {
         plugin.getLogger().info(message);
