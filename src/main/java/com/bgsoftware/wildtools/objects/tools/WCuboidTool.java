@@ -29,6 +29,9 @@ public final class WCuboidTool extends WTool implements CuboidTool {
 
     @Override
     public boolean onBlockBreak(BlockBreakEvent e) {
+        if (breakLevel < 1)
+            return false;
+
         ItemStack inHand = e.getPlayer().getItemInHand();
         int radius = breakLevel / 2;
 
