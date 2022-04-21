@@ -1,4 +1,4 @@
-group 'v1_18_R1'
+group 'v1_18_R2'
 
 java {
     toolchain {
@@ -12,9 +12,9 @@ repositories {
 }
 
 dependencies {
-    compileOnly "org.spigotmc:v1_18_R1-Paper:b68"
+    compileOnly "org.spigotmc:v1_18_R2-Paper:b225"
 
-    compileOnly 'io.papermc.paper:paper-api:1.18.1-R0.1-20211210.153434-2'
+    compileOnly 'io.papermc.paper:paper-api:1.18.2-R0.1-20220305.050345-9'
 
     compileOnly 'com.mojang:authlib:3.2.38'
     compileOnly 'com.mojang:datafixerupper:4.0.26'
