@@ -1,19 +1,7 @@
 package com.bgsoftware.wildtools.handlers;
 
-import com.bgsoftware.wildtools.api.objects.tools.CrowbarTool;
-import com.bgsoftware.wildtools.api.objects.tools.MagnetTool;
-import com.bgsoftware.wildtools.objects.tools.WBuilderTool;
-import com.bgsoftware.wildtools.objects.tools.WCannonTool;
-import com.bgsoftware.wildtools.objects.tools.WCraftingTool;
-import com.bgsoftware.wildtools.objects.tools.WCrowbarTool;
-import com.bgsoftware.wildtools.objects.tools.WCuboidTool;
-import com.bgsoftware.wildtools.objects.tools.WHarvesterTool;
-import com.bgsoftware.wildtools.objects.tools.WIceTool;
-import com.bgsoftware.wildtools.objects.tools.WLightningTool;
-import com.bgsoftware.wildtools.objects.tools.WMagnetTool;
-import com.bgsoftware.wildtools.objects.tools.WPillarTool;
-import com.bgsoftware.wildtools.objects.tools.WSellTool;
-import com.bgsoftware.wildtools.objects.tools.WSortTool;
+import com.bgsoftware.wildtools.api.objects.tools.*;
+import com.bgsoftware.wildtools.objects.tools.*;
 import com.bgsoftware.wildtools.utils.items.ToolItemStack;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -23,19 +11,6 @@ import com.bgsoftware.wildtools.WildToolsPlugin;
 import com.bgsoftware.wildtools.api.handlers.ToolsManager;
 import com.bgsoftware.wildtools.api.objects.Selection;
 import com.bgsoftware.wildtools.api.objects.ToolMode;
-import com.bgsoftware.wildtools.api.objects.tools.BuilderTool;
-import com.bgsoftware.wildtools.api.objects.tools.CannonTool;
-import com.bgsoftware.wildtools.api.objects.tools.CraftingTool;
-import com.bgsoftware.wildtools.api.objects.tools.CuboidTool;
-import com.bgsoftware.wildtools.api.objects.tools.DrainTool;
-import com.bgsoftware.wildtools.api.objects.tools.HarvesterTool;
-import com.bgsoftware.wildtools.api.objects.tools.IceTool;
-import com.bgsoftware.wildtools.api.objects.tools.LightningTool;
-import com.bgsoftware.wildtools.api.objects.tools.PillarTool;
-import com.bgsoftware.wildtools.api.objects.tools.SellTool;
-import com.bgsoftware.wildtools.api.objects.tools.SortTool;
-import com.bgsoftware.wildtools.api.objects.tools.Tool;
-import com.bgsoftware.wildtools.objects.tools.WDrainTool;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -164,8 +139,10 @@ public final class ToolsHandler implements ToolsManager {
     @Override
     public <T extends Tool> T registerTool(Material type, String name, Class<T> toolClass, Object arg) {
         Tool tool;
-        if(toolClass.isAssignableFrom(BuilderTool.class)){
+        if(toolClass.isAssignableFrom(BuilderTool.class)) {
             tool = new WBuilderTool(type, name, (int) arg);
+        }else if(toolClass.isAssignableFrom(FluidBuilderTool.class)){
+            tool = new WFluidBuilderTool(type, name, (int) arg);
         }else if(toolClass.isAssignableFrom(CannonTool.class)){
             tool = new WCannonTool(type, name, (int) arg);
         }else if(toolClass.isAssignableFrom(CraftingTool.class)){
