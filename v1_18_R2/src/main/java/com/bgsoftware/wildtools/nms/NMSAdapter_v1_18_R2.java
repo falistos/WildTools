@@ -7,6 +7,7 @@ import com.bgsoftware.wildtools.objects.WMaterial;
 import com.bgsoftware.wildtools.recipes.AdvancedShapedRecipe;
 import com.bgsoftware.wildtools.utils.Executor;
 import com.bgsoftware.wildtools.utils.items.ToolItemStack;
+import com.destroystokyo.paper.antixray.ChunkPacketBlockControllerAntiXray;
 import io.papermc.paper.enchantments.EnchantmentRarity;
 import net.kyori.adventure.text.Component;
 import net.minecraft.core.BlockPosition;
@@ -265,8 +266,10 @@ public final class NMSAdapter_v1_18_R2 implements NMSAdapter {
 
         setBlockState(chunk, blockPosition, getByCombinedId(combinedId), true);
 
-        if(UPDATE_NEARBY_BLOCKS.isValid() && world.paperConfig.antiXray)
+        if (UPDATE_NEARBY_BLOCKS.isValid() && world.paperConfig.antiXray &&
+                world.chunkPacketBlockController instanceof ChunkPacketBlockControllerAntiXray) {
             UPDATE_NEARBY_BLOCKS.invoke(world.chunkPacketBlockController, world, blockPosition);
+        }
     }
 
     @Override
@@ -277,7 +280,7 @@ public final class NMSAdapter_v1_18_R2 implements NMSAdapter {
 
         ChunkProviderServer chunkProviderServer = getChunkSource(worldServer);
 
-        for(Location location : blocksList) {
+        for (Location location : blocksList) {
             BlockPosition blockPosition = new BlockPosition(location.getBlockX(), location.getBlockY(), location.getBlockZ());
             chunkProviderServer.a(blockPosition);
         }
@@ -531,7 +534,7 @@ public final class NMSAdapter_v1_18_R2 implements NMSAdapter {
         if (EntityItem.a(itemOfEntity, itemOfOtherEntity)) {
             if (!CraftEventFactory.callItemMergeEvent(otherEntity, entityItem).isCancelled()) {
                 mergeItems(entityItem, itemOfEntity, itemOfOtherEntity);
-                entityItem.aq = Math.max(entityItem.aq, otherEntity.aq);
+                entityItem.ao = Math.max(entityItem.ao, otherEntity.ao);
                 entityItem.ap = Math.min(entityItem.ap, otherEntity.ap);
                 if (isEmpty(itemOfOtherEntity)) {
                     discard(otherEntity);
