@@ -53,6 +53,8 @@ public final class ProvidersHandler implements ProvidersManager {
     private StackedItemProvider stackedItemProvider;
     private EconomyProvider economyProvider;
 
+    private boolean checkPickupEventStatus = true;
+
     private final List<IToolBlockListener> toolBlockListeners = Lists.newArrayList();
 
     public ProvidersHandler(WildToolsPlugin plugin) {
@@ -250,7 +252,11 @@ public final class ProvidersHandler implements ProvidersManager {
         Optional<PricesProvider> pricesProvider = Optional.empty();
 
         if (pricesPlugin.equalsIgnoreCase("ShopGUIPlus") && Bukkit.getPluginManager().isPluginEnabled("ShopGUIPlus")) {
-            pricesProvider = createInstance("PricesProvider_ShopGUIPlus");
+            if (containsClass("net.brcdev.shopgui.shop.item.ShopItem")) {
+                pricesProvider = createInstance("PricesProvider_ShopGUIPlus78");
+            } else {
+                pricesProvider = createInstance("PricesProvider_ShopGUIPlus");
+            }
         } else if (pricesPlugin.equalsIgnoreCase("GUIShop") && Bukkit.getPluginManager().isPluginEnabled("GUIShop")) {
             pricesProvider = createInstance("PricesProvider_GUIShop");
         } else if (pricesPlugin.equalsIgnoreCase("Essentials") && Bukkit.getPluginManager().isPluginEnabled("Essentials")) {
