@@ -2,6 +2,7 @@ package com.bgsoftware.wildtools.listeners;
 
 import com.bgsoftware.wildtools.Locale;
 import com.bgsoftware.wildtools.WildToolsPlugin;
+import com.bgsoftware.wildtools.objects.tools.WCuboidTool;
 import com.bgsoftware.wildtools.objects.tools.WTool;
 
 import com.bgsoftware.wildtools.utils.items.ToolItemStack;
@@ -47,6 +48,12 @@ public final class BlocksListener implements Listener {
 
         if(tool == null)
             return;
+
+        if (tool instanceof WCuboidTool) {
+            WCuboidTool cuboidTool = (WCuboidTool) tool;
+            if (cuboidTool.getBreakLevel() < 1)
+                return;
+        }
 
         String world = e.getBlock().getWorld().getName();
 
@@ -101,6 +108,12 @@ public final class BlocksListener implements Listener {
 
         if(tool == null)
             return;
+
+        if (tool instanceof WCuboidTool) {
+            WCuboidTool cuboidTool = (WCuboidTool) tool;
+            if (cuboidTool.getBreakLevel() < 1)
+                return;
+        }
 
         String world = e.getPlayer().getWorld().getName();
 
@@ -186,6 +199,12 @@ public final class BlocksListener implements Listener {
 
         if(tool == null)
             return;
+
+        if (tool instanceof WCuboidTool) {
+            WCuboidTool cuboidTool = (WCuboidTool) tool;
+            if (cuboidTool.getBreakLevel() < 1)
+                return;
+        }
 
         String world = e.getRightClicked().getWorld().getName();
 
